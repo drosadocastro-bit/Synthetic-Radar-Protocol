@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-cyan: #38bdf8;
+  --color-brand-amber: #fbbf24;
+  --color-brand-red: #ef4444;
+  --color-brand-green: #4ade80;
+  --color-brand-purple: #a78bfa;
+  
+  --color-bg-deep: #020408;
+  --color-bg-card: #0a0f1a;
+  --color-border-subtle: #1e293b;
+  
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-deep text-slate-400 font-sans selection:bg-brand-cyan/20;
+  }
+}
+
+@layer components {
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .glass-card {
+    @apply bg-bg-card/50 border border-border-subtle rounded-xl p-5 backdrop-blur-md relative overflow-hidden;
+  }
+
+  .status-line {
+    @apply absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent;
+  }
+
+  .heading-accent {
+    @apply w-1.5 h-1.5 rotate-45;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-border-subtle rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-cyan/50;
+  }
+}
+
