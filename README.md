@@ -19,11 +19,23 @@ The heart of the simulation relies on a layered reality model:
 * **Phase 2 — Infrastructure Pressure Layer**: HVAC anomalies, Power instability.
 * **Phase 3 — Environmental Context Engine**: Weather systems, heat stress.
 * **Phase 4 — Scenario Engine**: Deterministic replay and pressure injection.
-* **Phase 5+ — AI Reasoning & Drift Catching**: OODA loop observation and behavioral drift detection using the Gemini framework.
+* **Phase 6 — AI Governance & Eval**:
+    * **6.5 — Policy Lab**: Parallel analysis of consensus algorithms.
+    * **6.6 — Regression Packs**: Benchmarking against deterministic failure modes.
+    * **6.7 — Contradiction Matrix**: Real-time agent tension and causal alignment mapping.
+    * **6.8 — Oversight Layer**: Agent K and the Blade Runner auditors.
+* **Phase 7 — Gemini Narrative Layer**: (Planned) LLM-driven natural language synthesis and recursive truth discovery.
+
+## 📊 Feature Highlights
+* **Agent K Oversight**: Autonomous auditing of AI governance integrity.
+* **Contradiction Heatmap**: Visualizing internal council tension and unstable consensus.
+* **Eval Harness**: Live scoring of perception drift and hallucination rates.
+* **Telemetry Replay**: Frame-by-frame diagnostic replay of historical scenarios.
+* **Subsystem Data Grid**: Sortable, filterable high-density alarm management.
 
 ## 🛠 Tech Stack
 * React 19 + TypeScript
 * Vite + Tailwind CSS 4
+* `motion` for fluid component / matrix animations
+* `lucide-react` for iconography
 * `recharts` for telemetry visualization
-* `motion` for fluid component animations
-* `@google/genai` for the AI Adaptive Agent layer (Synthetic Intelligence)
