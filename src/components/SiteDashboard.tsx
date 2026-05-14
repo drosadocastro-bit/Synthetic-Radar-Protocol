@@ -19,10 +19,13 @@ import { AgentCouncil } from './AgentCouncil';
 import { EvalHarness } from './EvalHarness';
 import { AlarmDataGrid } from './AlarmDataGrid';
 import { OversightPanel } from './OversightPanel';
+import { OmniscientNarrative } from './OmniscientNarrative';
+import { SubsystemsPanel } from './SubsystemsPanel';
+import { InfraMetricRow } from './InfraMetricRow';
 
 export default function SiteDashboard() {
   const [state, setState] = useState<SiteState>(simulation.getState());
-  const [activeTab, setActiveTab] = useState<'TELEMETRY' | 'LEDGER' | 'LIBRARY' | 'EVAL' | 'OVERSIGHT'>('TELEMETRY');
+  const [activeTab, setActiveTab] = useState<'TELEMETRY' | 'LEDGER' | 'LIBRARY' | 'EVAL' | 'OVERSIGHT' | 'NARRATIVE' | 'SUBSYSTEMS'>('TELEMETRY');
 
   const [severityFilter, setSeverityFilter] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'RESOLVED' | 'UNRESOLVED'>('ALL');
@@ -113,6 +116,14 @@ export default function SiteDashboard() {
               Live Telemetry
             </button>
             <button
+              onClick={() => setActiveTab('SUBSYSTEMS')}
+              className={cn("text-[9px] uppercase tracking-[0.2em] font-bold px-4 py-2 rounded-md transition-all",
+                activeTab === 'SUBSYSTEMS' ? "bg-brand-amber/10 text-brand-amber border border-brand-amber/20" : "text-slate-500 hover:text-slate-300 border border-transparent"
+              )}
+            >
+              Subsystems
+            </button>
+            <button
               onClick={() => setActiveTab('LEDGER')}
               className={cn("text-[9px] uppercase tracking-[0.2em] font-bold px-4 py-2 rounded-md transition-all",
                 activeTab === 'LEDGER' ? "bg-[#00f5ff]/10 text-[#00f5ff] border border-[#00f5ff]/20" : "text-slate-500 hover:text-slate-300 border border-transparent"
@@ -143,6 +154,14 @@ export default function SiteDashboard() {
               )}
             >
               Oversight
+            </button>
+            <button
+              onClick={() => setActiveTab('NARRATIVE')}
+              className={cn("text-[9px] uppercase tracking-[0.2em] font-bold px-4 py-2 rounded-md transition-all",
+                activeTab === 'NARRATIVE' ? "bg-[#e879f9]/10 text-[#e879f9] border border-[#e879f9]/20" : "text-slate-500 hover:text-slate-300 border border-transparent"
+              )}
+            >
+              Narrative
             </button>
           </div>
 
@@ -234,6 +253,17 @@ export default function SiteDashboard() {
                 </button>
               </div>
             </div>
+            {simulation.injectedEventsLog.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-border-subtle flex flex-wrap gap-2">
+                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest self-center mr-2">Injected Events:</span>
+                {simulation.injectedEventsLog.map((ev, i) => (
+                  <div key={i} className="px-2 py-1 bg-white/5 border border-white/10 rounded flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-white">{ev.type}</span>
+                    <span className="text-[9px] font-mono text-slate-400">@ Tick {ev.tick} ({ev.timeStr})</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <main className="dashboard-grid flex-1 overflow-hidden">
@@ -273,11 +303,32 @@ export default function SiteDashboard() {
                     </div>
                   </div>
 
-                  {Object.entries(sub.telemetry).map(([key, points]) => (
-                    <div key={key}>
-                      <TelemetryChart data={points as TelemetryPoint[]} name={key} />
-                    </div>
-                  ))}
+                  {sub.telemetry.txPower && sub.telemetry.rxNoise ? (
+                    <>
+                      <div key="TxRxGroup">
+                        <TelemetryChart 
+                          name="TX Power vs RX Noise"
+                          series={[
+                            { name: 'txPower', color: '#38bdf8', data: sub.telemetry.txPower },
+                            { name: 'rxNoise', color: '#f59e0b', data: sub.telemetry.rxNoise }
+                          ]} 
+                        />
+                      </div>
+                      {Object.entries(sub.telemetry)
+                        .filter(([k]) => k !== 'txPower' && k !== 'rxNoise')
+                        .map(([key, points]) => (
+                          <div key={key}>
+                            <TelemetryChart data={points as TelemetryPoint[]} name={key} />
+                          </div>
+                      ))}
+                    </>
+                  ) : (
+                    Object.entries(sub.telemetry).map(([key, points]) => (
+                      <div key={key}>
+                        <TelemetryChart data={points as TelemetryPoint[]} name={key} />
+                      </div>
+                    ))
+                  )}
                 </motion.div>
               ))}
             </div>
@@ -295,10 +346,7 @@ export default function SiteDashboard() {
                   <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">{infra.name}</h3>
                   <div className="flex flex-col gap-2">
                     {Object.entries(infra.metrics).map(([key, val]) => (
-                      <div key={key} className="flex justify-between items-center text-[11px] font-mono">
-                        <span className="text-slate-500 uppercase">{key}</span>
-                        <span className="text-slate-300">{(Number(val) % 100).toFixed(1)}</span>
-                      </div>
+                      <InfraMetricRow key={key} label={key} value={Number(val)} />
                     ))}
                   </div>
                 </div>
@@ -306,15 +354,9 @@ export default function SiteDashboard() {
               
               <div className="p-3 border border-brand-amber/20 rounded bg-brand-amber/[0.03]">
                 <h3 className="text-[10px] font-bold text-brand-amber/80 uppercase tracking-widest mb-2">Environmental</h3>
-                <div className="space-y-1">
-                  <div className="flex justify-between items-end border-b border-brand-amber/10 pb-1">
-                    <span className="text-[9px] text-slate-500 uppercase">External TEMP</span>
-                    <span className="text-sm font-mono text-white">{(state.environment.externalTemp * 9 / 5 + 32).toFixed(1)}°F</span>
-                  </div>
-                  <div className="flex justify-between items-end pt-1">
-                    <span className="text-[9px] text-slate-500 uppercase">HUMIDITY</span>
-                    <span className="text-sm font-mono text-white">{state.environment.humidity.toFixed(1)}%</span>
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <InfraMetricRow label="External TEMP" value={state.environment.externalTemp * 9 / 5 + 32} />
+                  <InfraMetricRow label="HUMIDITY" value={state.environment.humidity} />
                 </div>
               </div>
             </div>
@@ -388,7 +430,21 @@ export default function SiteDashboard() {
                 <div className="heading-accent bg-brand-red" />
                 Phase 3: System Alerts
               </h2>
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-center">
+                <div className="flex gap-2 mr-2">
+                  <div className="px-2 py-1 bg-slate-800/50 border border-slate-700 text-slate-400 text-[10px] font-mono rounded flex items-center">
+                    L: {filteredAlarms.filter(a => a.severity === 'LOW').length}
+                  </div>
+                  <div className="px-2 py-1 bg-brand-amber/5 border border-brand-amber/10 text-brand-amber text-[10px] font-mono rounded flex items-center">
+                    M: {filteredAlarms.filter(a => a.severity === 'MEDIUM').length}
+                  </div>
+                  <div className="px-2 py-1 bg-brand-amber/10 border border-brand-amber/30 text-brand-amber text-[10px] font-mono rounded flex items-center">
+                    H: {filteredAlarms.filter(a => a.severity === 'HIGH').length}
+                  </div>
+                  <div className="px-2 py-1 bg-brand-red/10 border border-brand-red/30 text-brand-red text-[10px] font-mono rounded flex items-center">
+                    C: {filteredAlarms.filter(a => a.severity === 'CRITICAL').length}
+                  </div>
+                </div>
                 <select 
                   value={severityFilter} 
                   onChange={(e) => setSeverityFilter(e.target.value as any)}
@@ -442,6 +498,10 @@ export default function SiteDashboard() {
         </div>
       </main>
       </div>
+      ) : activeTab === 'SUBSYSTEMS' ? (
+        <div className="flex-1 overflow-hidden min-h-0">
+          <SubsystemsPanel subsystems={state.subsystems} />
+        </div>
       ) : activeTab === 'LEDGER' ? (
         <ExperimentLedger />
       ) : activeTab === 'LIBRARY' ? (
@@ -453,9 +513,18 @@ export default function SiteDashboard() {
         }} />
       ) : activeTab === 'EVAL' ? (
         <EvalHarness />
-      ) : (
+      ) : activeTab === 'OVERSIGHT' ? (
         <div className="flex-1 overflow-hidden">
           <OversightPanel report={simulation.getActiveExperimentEntry().oversightReport} />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <OmniscientNarrative 
+            report={simulation.getActiveExperimentEntry().finalCouncilReport}
+            evalMetrics={simulation.getActiveExperimentEntry().evalMetrics}
+            oversightReport={simulation.getActiveExperimentEntry().oversightReport}
+            state={state}
+          />
         </div>
       )}
 

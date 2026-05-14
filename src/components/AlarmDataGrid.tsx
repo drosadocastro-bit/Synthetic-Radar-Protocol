@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, ArrowUpDown, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, ArrowUpDown, AlertCircle, CheckCircle2, Download } from 'lucide-react';
 import { Alarm } from '../types';
 import { cn } from '../lib/utils';
 
@@ -58,9 +58,48 @@ export function AlarmDataGrid({ alarms }: AlarmDataGridProps) {
     return sortOrder === 'asc' ? <ChevronUp size={12} className="text-brand-cyan" /> : <ChevronDown size={12} className="text-brand-cyan" />;
   };
 
+  const exportToCSV = () => {
+    if (sortedAlarms.length === 0) return;
+
+    const headers = ['Severity', 'Timestamp', 'Message', 'Subsystem ID', 'Status'];
+    const csvRows = [];
+    csvRows.push(headers.join(','));
+
+    for (const alarm of sortedAlarms) {
+      const severity = alarm.severity;
+      const timestamp = new Date(alarm.timestamp).toISOString();
+      const message = `"${alarm.message.replace(/"/g, '""')}"`; // Escape quotes
+      const subsystemId = alarm.subsystemId;
+      const status = alarm.resolved ? 'Resolved' : 'Active';
+      
+      csvRows.push([severity, timestamp, message, subsystemId, status].join(','));
+    }
+
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `alarms-export-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden border border-border-subtle/50 rounded-lg bg-bg-deep/40">
-      <div className="overflow-x-auto custom-scrollbar">
+      <div className="flex justify-end p-2 border-b border-border-subtle/30 bg-bg-card/90">
+        <button
+          onClick={exportToCSV}
+          disabled={sortedAlarms.length === 0}
+          className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-[#e879f9] bg-[#e879f9]/10 hover:bg-[#e879f9]/20 border border-[#e879f9]/20 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Download size={12} />
+          Export CSV
+        </button>
+      </div>
+      <div className="overflow-x-auto custom-scrollbar flex-1 min-h-0">
         <table className="w-full text-left border-collapse min-w-[600px]">
           <thead className="sticky top-0 bg-bg-card/90 backdrop-blur-sm z-10 border-b border-border-subtle shadow-sm">
             <tr>

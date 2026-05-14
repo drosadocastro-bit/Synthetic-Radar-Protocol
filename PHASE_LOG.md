@@ -56,6 +56,16 @@ This document tracks the technical evolution of the Synthetic Horizon platform, 
 
 ---
 
+## Phase 7.0: Omniscient Narrative Observer
+**Objective:** Provide a bounded LLM synthesis layer to interpret audited telemetry without modifying the deterministic state.
+
+### Implementation:
+- **Narrative Panel:** A dedicated UI surface displaying an operator-readable summary.
+- **Strict Bounding:** Gemini is explicitly instructed to act as an interpretation layer. It cannot modify telemetry, replay state, or governance metrics.
+- **Disagreement Preservation:** Gemini is forced to mention contradictions, ambiguity, and Blade Runner warnings in its output.
+
+---
+
 ## UX Enhancements: Alarm Data Grid
 **Objective:** Provide industry-standard observability tooling for high-density alert management.
 

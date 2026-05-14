@@ -29,6 +29,7 @@ export class SimulationEngine {
   private activeEvents: string[] = [];
   
   public scheduledEvents: ScenarioEvent[] = [];
+  public injectedEventsLog: {tick: number, type: string, timeStr: string}[] = [];
 
   constructor(seed: number = 12345) {
     this.initialSeed = seed;
@@ -40,6 +41,7 @@ export class SimulationEngine {
     this.simTime = Date.now();
     this.history = [];
     this.activeEvents = [];
+    this.injectedEventsLog = [];
     this.truth = this.initTruth();
     this.state = this.initObservedState(this.truth);
     this.history.push({
@@ -362,6 +364,10 @@ export class SimulationEngine {
   }
 
   public injectEvent(type: 'POWER_SPIKE' | 'HVAC_FAILURE' | 'STORM') {
+    const tick = this.history.length;
+    const timeStr = new Date(this.simTime).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    this.injectedEventsLog.push({ tick, type, timeStr });
+
     switch (type) {
       case 'POWER_SPIKE':
         this.truth.environment.powerQuality = 0.2; // Massive drop
