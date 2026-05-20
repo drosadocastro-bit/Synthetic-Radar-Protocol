@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Activity, Shield, Zap, Thermometer, Radio, Brain, AlertCircle, Play, Pause, GitBranch, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
+import { Activity, Shield, Zap, Thermometer, Radio, Brain, AlertCircle, Play, Pause, GitBranch, SkipBack, SkipForward, RotateCcw, CheckCircle, Eye, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { SiteState, AIReasoning, TelemetryPoint } from '../types';
 import { cn } from '../lib/utils';
 import { simulation } from '../lib/simulation';
@@ -22,6 +22,7 @@ import { OversightPanel } from './OversightPanel';
 import { OmniscientNarrative } from './OmniscientNarrative';
 import { SubsystemsPanel } from './SubsystemsPanel';
 import { InfraMetricRow } from './InfraMetricRow';
+import { AIReasoningDataGrid } from './AIReasoningDataGrid';
 
 export default function SiteDashboard() {
   const [state, setState] = useState<SiteState>(simulation.getState());
@@ -29,11 +30,39 @@ export default function SiteDashboard() {
 
   const [severityFilter, setSeverityFilter] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'RESOLVED' | 'UNRESOLVED'>('ALL');
+  const [subsystemFilter, setSubsystemFilter] = useState<'ALL' | 'LRR' | 'SRR' | 'BEACON' | 'DOPPLER'>('ALL');
 
   // Timeline State
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackIndex, setPlaybackIndex] = useState(-1);
   const [historyLength, setHistoryLength] = useState(1);
+
+  const [aiReasoningLogs, setAiReasoningLogs] = useState<AIReasoning[]>([]);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (isPlaying && activeTab === 'TELEMETRY' && playbackIndex === -1) {
+      const fetchAnalysis = async () => {
+        try {
+          const reasoning = await performSiteAnalysis(simulation.getState());
+          setAiReasoningLogs(prev => [reasoning, ...prev].slice(0, 50));
+        } catch (error) {
+          console.error("Failed to fetch AI reasoning:", error);
+        }
+      };
+
+      // Initial fetch when conditions are met
+      fetchAnalysis();
+      
+      // Poll every 10 seconds
+      intervalId = setInterval(fetchAnalysis, 10000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isPlaying, activeTab, playbackIndex]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -271,13 +300,31 @@ export default function SiteDashboard() {
           <div className="col-span-12 lg:col-span-8 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
           <section className="glass-card flex-shrink-0">
             <div className="status-line" />
-            <h2 className="text-[11px] font-mono uppercase tracking-[0.2em] text-brand-cyan mb-6 flex items-center gap-2">
-              <div className="heading-accent bg-brand-cyan" />
-              Phase 1: Synthetic Signal Systems
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[11px] font-mono uppercase tracking-[0.2em] text-brand-cyan flex items-center gap-2 m-0">
+                <div className="heading-accent bg-brand-cyan" />
+                Phase 1: Synthetic Signal Systems
+              </h2>
+              <div className="flex gap-2">
+                {(['ALL', 'LRR', 'SRR', 'BEACON', 'DOPPLER'] as const).map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setSubsystemFilter(type)}
+                    className={cn(
+                      "px-2 py-1 text-[9px] font-mono tracking-widest rounded transition-colors uppercase",
+                      subsystemFilter === type
+                        ? "bg-brand-cyan/20 border border-brand-cyan/50 text-brand-cyan"
+                        : "bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10"
+                    )}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {state.subsystems.map(sub => (
+              {state.subsystems.filter(sub => subsystemFilter === 'ALL' || sub.type === subsystemFilter).map(sub => (
                 <motion.div 
                   key={sub.id} 
                   initial={{ opacity: 0 }} 
@@ -425,6 +472,14 @@ export default function SiteDashboard() {
           </section>
 
           <section className="glass-card flex-shrink-0 flex flex-col gap-4">
+            <h2 className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00f5ff] mb-2 flex items-center gap-2">
+              <div className="heading-accent bg-[#00f5ff]" />
+              AI Reasoning Log
+            </h2>
+            <AIReasoningDataGrid reasoningLogs={aiReasoningLogs} />
+          </section>
+
+          <section className="glass-card flex-shrink-0 flex flex-col gap-4">
             <div className="flex justify-between items-center border-b border-border-subtle/50 pb-4">
               <h2 className="text-[11px] font-mono uppercase tracking-[0.2em] text-brand-red flex items-center gap-2">
                 <div className="heading-accent bg-brand-red" />
@@ -482,6 +537,80 @@ export default function SiteDashboard() {
               Phase 5: Agent Council
             </h2>
             <AgentCouncil report={state.councilReport} />
+          </section>
+          
+          <section className="glass-card flex-shrink-0 flex flex-col p-4">
+            {(() => {
+              const oversightReport = simulation.getActiveExperimentEntry().oversightReport;
+              const k = oversightReport?.agentK;
+
+              return (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-[11px] font-mono uppercase tracking-[0.2em] text-cyan-500 flex items-center gap-2 flex-shrink-0 m-0">
+                      <div className="heading-accent bg-cyan-500" />
+                      Agent K Governance Posture
+                    </h2>
+                    {k && (
+                      <div className={cn(
+                        "w-2 h-2 rounded-full",
+                        k.status === 'PASS' ? 'bg-brand-green shadow-[0_0_8px_rgba(34,197,94,0.5)]' :
+                        k.status === 'WATCH' ? 'bg-brand-amber shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
+                        k.status === 'REVIEW_REQUIRED' ? 'bg-brand-amber animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.8)]' :
+                        'bg-brand-red animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]'
+                      )} />
+                    )}
+                  </div>
+                  {!oversightReport ? (
+                    <div className="flex w-full items-center justify-center p-4">
+                      <span className="text-xs text-slate-500 font-mono uppercase tracking-widest">Awaiting Analysis...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 relative z-10">
+                      <div className="flex justify-between items-center bg-bg-deep border border-border-subtle p-3 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {k.status === 'PASS' && <CheckCircle className="text-brand-green" size={16} />}
+                          {k.status === 'WATCH' && <Eye className="text-brand-amber" size={16} />}
+                          {k.status === 'REVIEW_REQUIRED' && <AlertTriangle className="text-brand-amber" size={16} />}
+                          {k.status === 'CONTAINMENT_ALERT' && <AlertOctagon className="text-brand-red" size={16} />}
+                          <div className="flex flex-col">
+                            <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500">Oversight Status</span>
+                            <span className={cn(
+                              "text-[11px] font-mono font-bold uppercase",
+                              k.status === 'PASS' ? 'text-brand-green' :
+                              k.status === 'WATCH' ? 'text-brand-amber' :
+                              k.status === 'REVIEW_REQUIRED' ? 'text-brand-amber' : 'text-brand-red'
+                            )}>
+                              {k.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="col-span-1 bg-bg-deep border border-border-subtle p-3 rounded-lg flex flex-col justify-center items-center gap-1">
+                          <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500 text-center">Compliance Score</span>
+                          <span className={cn(
+                            "text-2xl font-mono font-bold",
+                            oversightReport.governanceScore >= 0.9 ? "text-brand-green" :
+                            oversightReport.governanceScore >= 0.7 ? "text-brand-amber" : "text-brand-red"
+                          )}>
+                            {(oversightReport.governanceScore * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="col-span-2 bg-bg-deep border border-border-subtle p-3 rounded-lg flex flex-col gap-1">
+                          <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500 flex items-center gap-2">
+                            <Shield size={10} className="inline opacity-70" /> Security Analysis
+                          </span>
+                          <p className="text-[11px] text-slate-300 font-mono leading-relaxed mt-1">
+                            "{k.message}"
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </section>
           
           <section className="h-32 flex-shrink-0 bg-bg-card/80 border border-brand-cyan/20 rounded-xl p-4 flex flex-col justify-center items-center gap-4 relative overflow-hidden">

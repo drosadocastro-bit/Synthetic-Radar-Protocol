@@ -84,9 +84,14 @@ export function ContradictionMatrix({ nodes, findings }: ContradictionMatrixProp
                     </motion.div>
 
                     {/* Tooltip */}
-                    <div className="absolute top-0 left-full ml-2 z-50 w-48 bg-bg-card border border-border-subtle rounded-lg p-3 shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-                      <div className="text-[9px] uppercase font-bold text-slate-500 mb-2 truncate">
-                         {rowAgent.name} + {colAgent.name}
+                    <div className="absolute top-0 left-full ml-2 z-50 w-56 bg-bg-card border border-border-subtle rounded-lg p-3 shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-[9px] uppercase font-bold text-slate-500 truncate">
+                           {rowAgent.name} + {colAgent.name}
+                        </div>
+                        <div className="text-[9px] font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded text-white/70">
+                          CONF: {(node.strength * 100).toFixed(0)}%
+                        </div>
                       </div>
                       <div className={cn(
                         "text-[10px] font-mono font-bold uppercase mb-1",
