@@ -59,3 +59,46 @@ export async function performSiteAnalysis(state: SiteState): Promise<AIReasoning
     };
   }
 }
+
+export async function handleTerminalCommand(
+  command: string,
+  state: SiteState
+): Promise<{ text: string; isAI: boolean }> {
+  if (!process.env.GEMINI_API_KEY) {
+    return { text: "", isAI: false };
+  }
+
+  const prompt = `
+    You are the Diagnostic Executive Agent terminal for Cathedral Labs Synthetic Radar Systems.
+    An operator has executed a terminal command. Below is the active radar system state.
+    
+    Current Radar State: ${JSON.stringify(state, null, 2)}
+    
+    Command Executed: ${command}
+    
+    Context and Requirements:
+    1. The operator is in "Phase 1: Diagnostic-only STI" mode. This terminal blocks direct actions like set, write, delete, shutdown, inject.
+    2. However, the operator can run "Phase 2: Shadow actions" by prefixing commands with "simulate-action".
+    3. If they ran "simulate-action <some-command>", analyze the expected impact on this radar state and return a response in this exact format:
+       Predicted outcome: [Describe predicted change in telemetry, system state, signal attenuation etc.]
+       Confidence: [Between 0.0 and 1.0, e.g. 0.65]
+       Risk: [low / medium / high / critical]
+       Reasoning: [Short technical explanation of the physics or software mechanics involved]
+    4. For allowed diagnostic commands like "signal-trace", "find-anomaly", "show-dsp", "status", "show-memory", "show-registers", etc., output a clean, highly structured, realistic monospace terminal printout. You MUST clearly prefix or header the printout with:
+       "[SYNTHETIC DIAGNOSTIC PROJECTION - NOT REAL HARDWARE INTROSPECTION]"
+       Highlight any actual anomalies derived from the current state (e.g. if health is low or alarms exist). Do NOT use markdown backticks because this will be rendered directly inside a pre-formatted element.
+    
+    Please provide the output printout for this command.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+    });
+    return { text: response.text || "Command execution returned empty stream.", isAI: true };
+  } catch (err) {
+    console.error("Gemini Terminal Error:", err);
+    return { text: "", isAI: false };
+  }
+}

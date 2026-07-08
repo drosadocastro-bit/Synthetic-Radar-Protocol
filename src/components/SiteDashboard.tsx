@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Activity, Shield, Zap, Thermometer, Radio, Brain, AlertCircle, Play, Pause, GitBranch, SkipBack, SkipForward, RotateCcw, CheckCircle, Eye, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { Activity, Shield, Zap, Thermometer, Radio, Brain, AlertCircle, Play, Pause, GitBranch, SkipBack, SkipForward, RotateCcw, CheckCircle, Eye, AlertTriangle, AlertOctagon, Terminal, RefreshCw } from 'lucide-react';
 import { SiteState, AIReasoning, TelemetryPoint } from '../types';
 import { cn } from '../lib/utils';
 import { simulation } from '../lib/simulation';
@@ -23,10 +23,12 @@ import { OmniscientNarrative } from './OmniscientNarrative';
 import { SubsystemsPanel } from './SubsystemsPanel';
 import { InfraMetricRow } from './InfraMetricRow';
 import { AIReasoningDataGrid } from './AIReasoningDataGrid';
+import AgentTerminal from './AgentTerminal';
+import SyntheticProjectionPane from './SyntheticProjectionPane';
 
 export default function SiteDashboard() {
   const [state, setState] = useState<SiteState>(simulation.getState());
-  const [activeTab, setActiveTab] = useState<'TELEMETRY' | 'LEDGER' | 'LIBRARY' | 'EVAL' | 'OVERSIGHT' | 'NARRATIVE' | 'SUBSYSTEMS'>('TELEMETRY');
+  const [activeTab, setActiveTab] = useState<'TELEMETRY' | 'LEDGER' | 'LIBRARY' | 'EVAL' | 'OVERSIGHT' | 'NARRATIVE' | 'SUBSYSTEMS' | 'TERMINAL'>('TELEMETRY');
 
   const [severityFilter, setSeverityFilter] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'RESOLVED' | 'UNRESOLVED'>('ALL');
@@ -36,6 +38,20 @@ export default function SiteDashboard() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackIndex, setPlaybackIndex] = useState(-1);
   const [historyLength, setHistoryLength] = useState(1);
+
+  // Critical Alert Modal State (for Synthetic Diagnostic Projections)
+  const [activeCriticalAlert, setActiveCriticalAlert] = useState<{
+    id: string;
+    subsystem: string;
+    message: string;
+    timestamp: string;
+    confidence: number;
+    severity: 'HIGH' | 'CRITICAL';
+  } | null>(null);
+
+  const [isSirenOn, setIsSirenOn] = useState(false);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [calibrationLog, setCalibrationLog] = useState<string[]>([]);
 
   const [aiReasoningLogs, setAiReasoningLogs] = useState<AIReasoning[]>([]);
 
@@ -100,6 +116,36 @@ export default function SiteDashboard() {
       }
     }
   }, [playbackIndex]);
+
+  useEffect(() => {
+    let audioInterval: NodeJS.Timeout;
+    if (isSirenOn && activeCriticalAlert) {
+      const playBeep = () => {
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(440, ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(330, ctx.currentTime + 0.3);
+          
+          gain.gain.setValueAtTime(0.012, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {}
+      };
+      
+      playBeep();
+      audioInterval = setInterval(playBeep, 2000);
+    }
+    return () => clearInterval(audioInterval);
+  }, [isSirenOn, activeCriticalAlert]);
 
   const handleBranchScenario = () => {
     if (playbackIndex !== -1) {
@@ -191,6 +237,14 @@ export default function SiteDashboard() {
               )}
             >
               Narrative
+            </button>
+            <button
+              onClick={() => setActiveTab('TERMINAL')}
+              className={cn("text-[9px] uppercase tracking-[0.2em] font-bold px-4 py-2 rounded-md transition-all",
+                activeTab === 'TERMINAL' ? "bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30 shadow-[0_0_8px_rgba(34,211,238,0.15)] animate-pulse" : "text-slate-500 hover:text-slate-300 border border-transparent"
+              )}
+            >
+              Agent Terminal
             </button>
           </div>
 
@@ -613,17 +667,7 @@ export default function SiteDashboard() {
             })()}
           </section>
           
-          <section className="h-32 flex-shrink-0 bg-bg-card/80 border border-brand-cyan/20 rounded-xl p-4 flex flex-col justify-center items-center gap-4 relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(56,189,248,0.1)_0%,_transparent_70%)]"></div>
-            <div className="flex gap-4 items-end h-10 items-center relative z-10">
-              <div className="w-1 h-4 bg-brand-cyan/20"></div>
-              <div className="w-1 h-6 bg-brand-cyan/40"></div>
-              <div className="w-1 h-10 bg-brand-cyan animate-pulse"></div>
-              <div className="w-1 h-8 bg-brand-cyan/60"></div>
-              <div className="w-1 h-3 bg-brand-cyan/20"></div>
-            </div>
-            <span className="text-[9px] relative z-10 font-mono text-brand-cyan uppercase tracking-[0.3em] font-bold opacity-70">DSP Signal Analysis Active</span>
-          </section>
+          <SyntheticProjectionPane state={state} onCriticalAlert={setActiveCriticalAlert} />
         </div>
       </main>
       </div>
@@ -645,6 +689,10 @@ export default function SiteDashboard() {
       ) : activeTab === 'OVERSIGHT' ? (
         <div className="flex-1 overflow-hidden">
           <OversightPanel report={simulation.getActiveExperimentEntry().oversightReport} />
+        </div>
+      ) : activeTab === 'TERMINAL' ? (
+        <div className="flex-1 overflow-visible min-h-0">
+          <AgentTerminal state={state} />
         </div>
       ) : (
         <div className="flex-1 overflow-hidden">
@@ -670,6 +718,200 @@ export default function SiteDashboard() {
           <span className="text-[9px] font-mono text-slate-700 tracking-tighter uppercase font-bold">Cathedral Labs // Sub-Sector Audit Required</span>
         </div>
       </footer>
+
+      {/* Synthetic Diagnostic High-Priority Alert Modal */}
+      <AnimatePresence>
+        {activeCriticalAlert && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-lg bg-[#070D14] border border-brand-red/50 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.25)] flex flex-col text-slate-300"
+            >
+              {/* Emergency Pulsing top bar */}
+              <div className="bg-brand-red/10 border-b border-brand-red/30 px-4 py-3 flex justify-between items-center animate-pulse">
+                <div className="flex items-center gap-2 text-brand-red font-mono text-[11px] font-bold tracking-[0.25em]">
+                  <AlertOctagon size={16} className="text-brand-red animate-bounce" />
+                  HIGH-PRIORITY ALIGNMENT EXCLUSION DETECTED
+                </div>
+                <div className="text-[9px] font-mono text-brand-red/80 bg-brand-red/20 px-2 py-0.5 rounded-sm font-black border border-brand-red/30">
+                  SECURE ENCLAVE ALERT
+                </div>
+              </div>
+
+              {/* Main alert content */}
+              <div className="p-5 flex-1 flex flex-col gap-4 text-left">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <span className="text-[9px] font-mono text-slate-500 block uppercase tracking-widest">SUB-SYSTEM VECTOR SOURCE</span>
+                    <h3 className="text-sm font-mono font-bold text-slate-200 mt-0.5 uppercase tracking-tight flex items-center gap-2">
+                      <Radio size={14} className="text-brand-red inline animate-pulse flex-shrink-0" />
+                      {activeCriticalAlert.subsystem}
+                    </h3>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-[9px] font-mono text-slate-500 block uppercase tracking-widest">PROJECTION TIME</span>
+                    <span className="text-xs font-mono font-bold text-slate-300 mt-0.5 block">
+                      {activeCriticalAlert.timestamp} UTC
+                    </span>
+                  </div>
+                </div>
+
+                {/* Preformatted critical message box */}
+                <div className="bg-brand-red/5 border border-brand-red/25 rounded-lg p-4 font-mono text-[11px] leading-relaxed text-red-200 relative overflow-hidden">
+                  <div className="absolute right-2 top-2 select-none pointer-events-none opacity-5">
+                    <AlertOctagon size={64} className="text-brand-red" />
+                  </div>
+                  <div className="font-bold text-brand-red mb-1.5 flex items-center gap-1">
+                    <span>[WARNING]</span>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-normal">SYNTHETIC READOUT</span>
+                  </div>
+                  <p className="font-sans text-[11px] leading-relaxed">{activeCriticalAlert.message}</p>
+                </div>
+
+                {/* Metric analytics grid */}
+                <div className="grid grid-cols-2 gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-lg font-mono">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] text-slate-500 uppercase tracking-widest">IMPACT PROBABILITY</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-brand-cyan">{(activeCriticalAlert.confidence * 100).toFixed(0)}%</span>
+                      <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-brand-cyan rounded-full" 
+                          style={{ width: `${activeCriticalAlert.confidence * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] text-slate-500 uppercase tracking-widest">SEVERITY GRADE</span>
+                    <span className="text-xs font-bold text-brand-red flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-ping" />
+                      {activeCriticalAlert.severity}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Simulated Siren controls */}
+                <div className="flex items-center justify-between border-t border-b border-white/5 py-2 text-[10px] font-mono">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <span>AUDIBLE WARN-SIREN SYNTHESIZER:</span>
+                    <span className={isSirenOn ? 'text-brand-green font-bold' : 'text-slate-500'}>
+                      {isSirenOn ? 'ON' : 'MUTED'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsSirenOn(!isSirenOn);
+                      if (!isSirenOn) {
+                        try {
+                          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                          const osc = ctx.createOscillator();
+                          const gain = ctx.createGain();
+                          osc.type = 'sawtooth';
+                          osc.frequency.setValueAtTime(220, ctx.currentTime);
+                          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+                          gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+                          osc.connect(gain);
+                          gain.connect(ctx.destination);
+                          osc.start();
+                          osc.stop(ctx.currentTime + 0.2);
+                        } catch (e) {}
+                      }
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-all border",
+                      isSirenOn 
+                        ? "bg-brand-green/20 border-brand-green text-brand-green" 
+                        : "bg-white/5 border-white/10 text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    {isSirenOn ? 'Mute Siren' : 'Enable Siren'}
+                  </button>
+                </div>
+
+                {isCalibrating && (
+                  <div className="bg-black/50 border border-white/5 p-2 rounded-lg font-mono text-[9px] leading-relaxed text-brand-cyan h-24 overflow-y-auto">
+                    <div className="flex justify-between border-b border-white/10 pb-1 mb-1 font-bold text-[8px] text-slate-400">
+                      <span>RECALIBRATION SEQUENCE IN PROGRESS</span>
+                      <span className="animate-pulse">RUNNING...</span>
+                    </div>
+                    {calibrationLog.map((logLine, idx) => (
+                      <div key={idx} className="truncate">
+                        {logLine}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="bg-white/[0.02] border-t border-white/10 p-4 flex gap-2 font-mono">
+                <button
+                  onClick={() => {
+                    if (isCalibrating) return;
+                    setIsCalibrating(true);
+                    setCalibrationLog([
+                      '[INIT] Isolating Antenna Array Alpha-3 Phase feedback loop...',
+                    ]);
+                    
+                    setTimeout(() => {
+                      setCalibrationLog(prev => [...prev, '[RESOLVE] Tuning waveguide impedance to 50.4 Ohms...']);
+                    }, 400);
+
+                    setTimeout(() => {
+                      setCalibrationLog(prev => [...prev, '[RESOLVE] Discharging coaxial filter capacitors...']);
+                    }, 800);
+
+                    setTimeout(() => {
+                      setCalibrationLog(prev => [...prev, '[CALIB] Recalibrating spatial beamformer coefficients...']);
+                    }, 1200);
+
+                    setTimeout(() => {
+                      setCalibrationLog(prev => [...prev, '[SUCCESS] Phase-shift coherence restored. Margin safe.']);
+                    }, 1600);
+
+                    setTimeout(() => {
+                      setIsCalibrating(false);
+                      setActiveCriticalAlert(null);
+                      setIsSirenOn(false);
+                      setCalibrationLog([]);
+                    }, 2200);
+                  }}
+                  disabled={isCalibrating}
+                  className="flex-1 bg-brand-cyan text-[#04080F] hover:bg-cyan-300 font-bold py-2.5 px-4 rounded text-[10px] uppercase tracking-widest shadow-[0_0_12px_rgba(34,211,238,0.3)] transition-all flex items-center justify-center gap-2"
+                >
+                  {isCalibrating ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      Calibrating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={12} />
+                      Acknowledge & Recalibrate
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setActiveCriticalAlert(null);
+                    setIsSirenOn(false);
+                  }}
+                  disabled={isCalibrating}
+                  className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 py-2.5 px-4 rounded text-[10px] uppercase tracking-widest transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
